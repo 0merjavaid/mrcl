@@ -1,6 +1,7 @@
 import argparse
 import logging
-
+import warnings
+warnings.filterwarnings("ignore")
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -12,7 +13,8 @@ import model.modelfactory as mf
 import utils.utils as utils
 from experiment.experiment import experiment
 from model.meta_learner import MetaLearingClassification
-
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 logger = logging.getLogger('experiment')
 
 
@@ -39,7 +41,6 @@ def main():
     args['traj_classes'] = list(range(int(963/2), 963))
 
 
-
     dataset = df.DatasetFactory.get_dataset(args['dataset'], background=True, train=True,path=args["path"], all=True)
     dataset_test = df.DatasetFactory.get_dataset(args['dataset'], background=True, train=False, path=args["path"], all=True)
 
@@ -63,17 +64,14 @@ def main():
 
     maml = MetaLearingClassification(args, config).to(device)
 
-    
+
     for step in range(args['steps']):
 
         t1 = np.random.choice(args['traj_classes'], args['tasks'], replace=False)
-
         d_traj_iterators = []
         for t in t1:
             d_traj_iterators.append(sampler.sample_task([t]))
-
         d_rand_iterator = sampler.get_complete_iterator()
-
         x_spt, y_spt, x_qry, y_qry = maml.sample_training_data(d_traj_iterators, d_rand_iterator,
                                                                steps=args['update_step'], reset=not args['no_reset'])
         if torch.cuda.is_available():
@@ -82,12 +80,12 @@ def main():
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
 
         # Evaluation during training for sanity checks
-        if step % 40 == 5:
-            writer.add_scalar('/metatrain/train/accuracy', accs[-1], step)
-            logger.info('step: %d \t training acc %s', step, str(accs))
-        if step % 300 == 3:
-            utils.log_accuracy(maml, my_experiment, iterator_test, device, writer, step)
-            utils.log_accuracy(maml, my_experiment, iterator_train, device, writer, step)
+        # if step % 40 == 5:
+        #     writer.add_scalar('/metatrain/train/accuracy', accs[-1], step)
+        #     logger.info('step: %d \t training acc %s', step, str(accs))
+        # if step % 300 == 3:
+        #     utils.log_accuracy(maml, my_experiment, iterator_test, device, writer, step)
+        #     utils.log_accuracy(maml, my_experiment, iterator_train, device, writer, step)
 
 
 if __name__ == '__main__':

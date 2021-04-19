@@ -7,14 +7,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 import configs.regression.reg_parser as reg_parser
 import datasets.task_sampler as ts
-import model.modelfactory as mf
 from experiment.experiment import experiment
-from model.meta_learner import MetaLearnerRegression
+from model.col_meta import MetaLearnerRegressionCol
 from utils import utils
 import os
 from pprint import pprint
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 logger = logging.getLogger('experiment')
 
 
@@ -39,10 +38,6 @@ def main():
 
     sampler = ts.SamplerFactory.get_sampler("Sin", tasks, None, capacity=args["capacity"] + 1)
 
-    model_config = mf.ModelFactory.get_model(args["model"], "Sin", input_dimension=args["capacity"] + 1,
-                                             output_dimension=1,
-                                             width=args["width"])
-    context_backbone_config = None
     gpu_to_use = rank % args["gpus"]
     if torch.cuda.is_available():
         device = torch.device('cuda:' + str(gpu_to_use))
@@ -50,7 +45,7 @@ def main():
     else:
         device = torch.device('cpu')
 
-    metalearner = MetaLearnerRegression(args, model_config, context_backbone_config).to(device)
+    metalearner = MetaLearnerRegressionCol(51, 150, 50)
     tmp = filter(lambda x: x.requires_grad, metalearner.parameters())
     num = sum(map(lambda x: np.prod(x.shape), tmp))
     logger.info('Total trainable tensors: %d', num)
@@ -74,9 +69,8 @@ def main():
             iterators.append(sampler.sample_task([t]))
 
         x_traj_meta, y_traj_meta, x_rand_meta, y_rand_meta = utils.construct_set(iterators, sampler,
-                                                                                 steps=args[
-                                                                                     "update_step"])
-
+                                                                                 steps=1)
+        x_traj_meta , x_rand_meta, y_traj_meta, y_rand_meta = x_traj_meta.view(-1,51), x_rand_meta.view(-1,51), y_traj_meta.view(-1,2), y_rand_meta.view(-1,2)
         if torch.cuda.is_available():
             x_traj_meta, y_traj_meta, x_rand_meta, y_rand_meta = x_traj_meta.to(device), y_traj_meta.to(
                 device), x_rand_meta.to(
@@ -103,20 +97,22 @@ def main():
                 for t in t1:
                     iterators.append(sampler.sample_task([t]))
 
-                x_traj, y_traj, x_rand, y_rand = utils.construct_set(iterators, sampler, steps=args["update_step"])
-
+                x_traj, y_traj, x_rand, y_rand = utils.construct_set(iterators, sampler, steps=1)
+                x_traj , x_rand, y_traj, y_rand = x_traj.view(-1,51), x_rand.view(-1,51), y_traj.view(-1,2), y_rand.view(-1,2)
                 if torch.cuda.is_available():
                     x_traj, y_traj, x_rand, y_rand = x_traj.to(device), y_traj.to(device), x_rand.to(device), y_rand.to(
                         device)
-
-                logits = net(x_rand[0], vars=None)
                 logits_select = []
-                assert y_rand[0, :,1].sum() == 0
-                for no, val in enumerate(y_rand[0, :, 1].long()):
-                    logits_select.append(logits[no, val])
+                for i in range(len(x_traj)):
+                    l, _, _ = net(x_rand[0], hidden_state=metalearner.rnn_state, grad=False)
+                    logits_select.append(l)
+                # logits_select = []
+                # for no, val in enumerate(y_rand[:, 1].long()):
+                #     logits_select.append(logits[no])
+
                 logits = torch.stack(logits_select).unsqueeze(1)
 
-                current_adaptation_loss = F.mse_loss(logits, y_rand[0, :, 0].unsqueeze(1))
+                current_adaptation_loss = F.mse_loss(logits, y_rand[:, 0].unsqueeze(1))
                 adaptation_loss_history.append(current_adaptation_loss.detach().item())
                 adaptation_loss = adaptation_loss * 0.97 + current_adaptation_loss.detach().cpu().item() * 0.03
                 adaptation_loss_fixed = adaptation_loss / (1 - (0.97 ** (step + 1)))

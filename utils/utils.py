@@ -342,7 +342,7 @@ def construct_set(iterators, sampler, steps, shuffle=True):
         id_mapped = id_map[id]
         for inner in range(steps):
             x, y = sampler.sample_batch(it1, id_mapped, 10)
-            x_traj.append(x)
+            x_traj.append(x) #10 iterators of 10x51
             y_traj.append(y)
         #
         x, y = sampler.sample_batch(it1, id_mapped, 10)
@@ -354,6 +354,5 @@ def construct_set(iterators, sampler, steps, shuffle=True):
 
     x_traj = torch.stack(x_traj)
     y_traj = torch.stack(y_traj)
-
 
     return x_traj, y_traj, x_rand, y_rand

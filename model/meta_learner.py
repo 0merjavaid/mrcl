@@ -26,7 +26,6 @@ class MetaLearnerRegression(nn.Module):
         self.context_plasticity = args["context_plasticity"]
 
         self.sigmoid = not args["no_sigmoid"]
-
         self.load_model(args, config, backbone_config)
         self.optimizers = []
 
@@ -72,7 +71,6 @@ class MetaLearnerRegression(nn.Module):
         if args['model_path'] is not None and False:
             pass
             assert (False)
-
         else:
             self.net = Learner.Learner(config, context_config)
 
@@ -127,7 +125,6 @@ class MetaLearnerRegression(nn.Module):
         return net
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
-
         prediction = self.net(x_traj[0], vars=None)
         loss = F.mse_loss(prediction, y_traj[0, :, 0].unsqueeze(1))
 
@@ -143,13 +140,9 @@ class MetaLearnerRegression(nn.Module):
         with torch.no_grad():
             prediction = self.net(x_rand[0], vars=None)
             first_loss = F.mse_loss(prediction, y_rand[0, :, 0].unsqueeze(1))
-
         for k in range(1, len(x_traj)):
-
             prediction = self.net(x_traj[k], fast_weights)
-
             loss = F.mse_loss(prediction, y_traj[k, :, 0].unsqueeze(1))
-
             grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(fast_weights),
                                                       create_graph=True))
 
@@ -158,7 +151,7 @@ class MetaLearnerRegression(nn.Module):
                 list_of_context = self.net.forward_plasticity(x_traj[k])
 
             fast_weights = self.inner_update(self.net, fast_weights, grad, self.update_lr, list_of_context)
-
+        
         prediction_qry_set = self.net(x_rand[0], fast_weights)
         # print(prediction_qry_set)
         final_meta_loss = F.mse_loss(prediction_qry_set, y_rand[0, :, 0].unsqueeze(1))
@@ -373,7 +366,6 @@ class MetaLearingClassification(nn.Module):
             classification_accuracy = self.eval_accuracy(last_layer_logits, y_rand[0])
             accuracy_meta_set[1] = accuracy_meta_set[1] + classification_accuracy
 
-        # print(len(x_traj))
         for k in range(1, len(x_traj)):
             # Doing inner updates using fast weights
             fast_weights = self.inner_update(x_traj[k], fast_weights, y_traj[k])
@@ -395,7 +387,7 @@ class MetaLearingClassification(nn.Module):
 
         self.optimizer.step()
         accuracies = np.array(accuracy_meta_set) / len(x_rand[0])
-
+        print (accuracies[-1], meta_losses)
         return accuracies, meta_losses
 
 

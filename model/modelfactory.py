@@ -34,7 +34,7 @@ class ModelFactory():
                 ]
 
         elif dataset == "omniglot":
-            channels = 256
+            channels = 64
 
             return [
                 {"name": 'conv2d', "adaptation": False, "meta": True,

@@ -46,7 +46,6 @@ class Learner(nn.Module):
                 param_config = info_dict["config"]
                 w, b = oml.nn.linear(param_config["out"], param_config["in"], info_dict["adaptation"],
                                      info_dict["meta"])
-
                 vars_list.append(w)
                 vars_list.append(b)
 
@@ -83,7 +82,6 @@ class Learner(nn.Module):
     def forward(self, x, vars=None, config=None, sparsity_log=False, rep=False):
         """
         """
-
         x = x.float()
         if vars is None:
             vars = self.vars
@@ -129,7 +127,6 @@ class Learner(nn.Module):
         return x
 
     def update_weights(self, vars):
-
         for old, new in zip(self.vars, vars):
             old.data = new.data
 
@@ -140,7 +137,7 @@ class Learner(nn.Module):
         if vars is None:
             vars = self.vars
         return list(filter(lambda x: x.adaptation, list(vars)))
-    
+
     def get_forward_meta_parameters(self):
         """
         :return: adaptation parameters i.e. parameters changed in the inner loop

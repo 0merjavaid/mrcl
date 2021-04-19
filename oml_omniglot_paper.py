@@ -12,7 +12,8 @@ import model.modelfactory as mf
 import utils.utils as utils
 from experiment.experiment import experiment
 from model.meta_learner import MetaLearingClassification
-
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 logger = logging.getLogger('experiment')
 
 
@@ -60,7 +61,6 @@ def main():
         device = torch.device('cpu')
 
     maml = MetaLearingClassification(args, config).to(device)
-
     for step in range(args['steps']):
 
         t1 = np.random.choice(args['classes'], args['tasks'], replace=False)
@@ -76,9 +76,7 @@ def main():
         if torch.cuda.is_available():
             x_spt, y_spt, x_qry, y_qry = x_spt.to(device), y_spt.to(device), x_qry.to(device), y_qry.to(device)
 
-        #
         accs, loss = maml(x_spt, y_spt, x_qry, y_qry)
-
         # Evaluation during training for sanity checks
         if step % 40 == 5:
             writer.add_scalar('/metatrain/train/accuracy', accs[-1], step)
