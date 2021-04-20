@@ -67,7 +67,6 @@ class MetaLearnerVecFF(nn.Module):
         with torch.no_grad():
             """
             hidden state not taken care of
-            also refactor
             """
             counter = 0
             for name, a in self.named_parameters():
@@ -135,17 +134,26 @@ class MetaLearnerRegressionCol(nn.Module):
         """
         not doing 1st sample separatly
         """
+        # meta loss
         total_loss = 0
+        # inner updates in each step. no grad during prediction step bcz params being updated
+        # shape of x_traj is 100x51. or 10x10x50. tasks x samples x 51
+        # self.net is vectorized MetaLearnerFF
         for k in range(0, len(x_traj)):
-            value_prediction, self.rnn_state, _ = self.net.forward(x_traj[k], self.rnn_state, grad=False, bptt=True)
-            self.net.online_update(self.inner_lr, self.rnn_state, y_traj[k, 0], value_prediction)
-
-        for i in range(0, len(x_rand)):
-            value_prediction, self.rnn_state, grads = self.net(x_rand[i], self.rnn_state, grad=True)
+            value_prediction, self.rnn_state, grads = self.net.forward(x_traj[k], self.rnn_state, grad=True, bptt=False)
+            # internally self.prediction_params are being maintained
             total_loss += F.mse_loss(value_prediction, y_traj[k, 0])
             self.net.update_TH(grads)
-            self.net.accumulate_gradients(y_rand[i, 0], value_prediction, hidden_state=self.rnn_state)
-            self.net.update_TW(self.meta_lr, self.rnn_state, y_rand[i, 0], value_prediction)
+            self.net.accumulate_gradients(y_traj[k, 0], value_prediction, hidden_state=self.rnn_state)
+            self.net.online_update(self.inner_lr, self.rnn_state, y_traj[k, 0], value_prediction)
+            self.net.update_TW(self.inner_lr, self.rnn_state, y_traj[k, 0], value_prediction)
+
+        # for meta update. shape here 100x51 or 10x10x51
+        # for i in range(0, len(x_rand)):
+        #     value_prediction, self.rnn_state, grads = self.net(x_rand[i], self.rnn_state, grad=True)
+        #     total_loss += F.mse_loss(value_prediction, y_rand[k, 0])
+        #     self.net.accumulate_gradients(y_rand[i, 0], value_prediction, hidden_state=self.rnn_state)
+
         self.optimizer.zero_grad()
         self.optimizer.step()
 
