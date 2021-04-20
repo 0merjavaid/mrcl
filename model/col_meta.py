@@ -31,7 +31,7 @@ class MetaLearnerVecFF(nn.Module):
             self.grads[named] = torch.zeros_like(param.data).to(device)
             self.TW[named] = torch.zeros_like(param.data).to(device)
 
-        self.prediction_params = torch.zeros(total_columns)
+        self.prediction_params = torch.zeros(total_columns).to(device)
         # self.grads["prediction_params"] = torch.zeros_like(self.prediction_parameters.data).to(device)
 
     def forward(self, x, hidden_state, grad=True, retain_graph=False, bptt=False):
@@ -124,7 +124,7 @@ class MetaLearnerRegressionCol(nn.Module):
     def __init__(self, input_dimension, total_columns, column_width=10, device="cpu",
                 inner_lr=0.001, meta_lr=0.001):
         super(MetaLearnerRegressionCol, self).__init__()
-        self.net = MetaLearnerVecFF(input_dimension, total_columns, column_width, 0)
+        self.net = MetaLearnerVecFF(input_dimension, total_columns, column_width, 0, device=device).to(device)
         self.rnn_state = torch.zeros(total_columns)
         self.net.reset_TH()
         self.inner_lr = inner_lr

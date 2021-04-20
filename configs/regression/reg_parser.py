@@ -18,7 +18,7 @@ class Parser(configargparse.ArgParser):
                  default=[1e-4])
         self.add('--update-lr', nargs='+', type=float, help='task-level inner update learning rate',
                  default=[0.003])
-        self.add('--update-step', type=int, help='task-level inner update steps', default=5)
+        self.add('--update-step', type=int, help='task-level inner update steps', default=1)
         self.add('--name', help='Name of experiment', default="oml_regression")
         self.add('--model', help='Name of model', default="representation")
         self.add('--model-path', help='Path to model', default=None)
@@ -32,4 +32,3 @@ class Parser(configargparse.ArgParser):
         self.add('--seed', nargs='+', help='Seed', default=[90], type=int)
         self.add('--rank', type=int, help='meta batch size, namely task num', default=0)
         self.add("--width", type=int, default=400)
-

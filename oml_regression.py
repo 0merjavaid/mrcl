@@ -76,6 +76,7 @@ def main():
         x_traj_meta, y_traj_meta, x_rand_meta, y_rand_meta = utils.construct_set(iterators, sampler,
                                                                                  steps=args[
                                                                                      "update_step"])
+        x_traj_meta, y_traj_meta = x_traj_meta.view(-1,1,51), y_traj_meta.view(-1,1,2)
 
         if torch.cuda.is_available():
             x_traj_meta, y_traj_meta, x_rand_meta, y_rand_meta = x_traj_meta.to(device), y_traj_meta.to(
@@ -104,7 +105,7 @@ def main():
                     iterators.append(sampler.sample_task([t]))
 
                 x_traj, y_traj, x_rand, y_rand = utils.construct_set(iterators, sampler, steps=args["update_step"])
-
+                x_traj, y_traj = x_traj.view(-1,1,51), y_traj.view(-1,1,2)
                 if torch.cuda.is_available():
                     x_traj, y_traj, x_rand, y_rand = x_traj.to(device), y_traj.to(device), x_rand.to(device), y_rand.to(
                         device)
