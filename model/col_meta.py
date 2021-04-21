@@ -135,7 +135,58 @@ class MetaLearnerRegressionCol(nn.Module):
         self.meta_lr = meta_lr
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.meta_lr)
 
+        def inner_update(self, var, grad, adaptation_lr):
+        adaptation_weight_counter = 0
+        new_weights = []
+        i=0
+        for p in var:
+            if i == 8:
+                g = grad[adaptation_weight_counter]
+                temp_weight = p - adaptation_lr * g
+                new_weights.append(temp_weight)
+                adaptation_weight_counter += 1
+            else:
+                new_weights.append(p)
+            i+=1
+        return new_weights
+
+
     def forward(self, x_traj, y_traj, x_rand, y_rand):
+        prediction, self.rnn_state ,_ = self.net(x_traj[0], self.rnn_state, grad=False, bptt=True)
+        loss = F.mse_loss(prediction, y_traj[0, 0])
+
+        grad = torch.autograd.grad(loss, self.net.prediction_params,
+                                                  create_graph=True)
+        fast_weights = self.inner_update(self.net.parameters(), grad, self.inner_lr)
+
+
+        with torch.no_grad():
+            prediction, _, _ = self.net(x_rand[0], self.rnn_state, grad=False, bptt=True)
+            first_loss = F.mse_loss(prediction, y_rand[0, 0])
+
+        for k in range(1, len(x_traj)):
+            prediction, self.rnn_state, _ = self.net(x_traj[k], self.rnn_state, grad=False, bptt=True)
+            loss = F.mse_loss(prediction, y_traj[k,  0])
+            grad = torch.autograd.grad(loss, self.net.prediction_params,
+                                                      create_graph=True)
+
+            fast_weights = self.inner_update(fast_weights, grad, self.inner_lr)
+        meta_loss = 0
+
+        for i in range(1, len(x_rand)):
+            prediction, self.rnn_state, _ = self.net(x_rand[i], self.rnn_state, grad=False, bptt=True)
+            loss = F.mse_loss(prediction, y_rand[i,  0])
+            meta_loss += loss
+
+        for p in self.net.parameters():
+            print (p.grad.sum())
+        self.optimizer.zero_grad()
+        meta_loss.backward()
+        self.optimizer.step()
+        0/0
+        return [first_loss.detach(), meta_loss.detach()/len(x_rand)]
+
+    def abcd(self, x_traj, y_traj, x_rand, y_rand):
         """
         not doing 1st sample separatly
         """
