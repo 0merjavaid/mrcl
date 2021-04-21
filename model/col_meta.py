@@ -30,8 +30,8 @@ class MetaLearnerVecFF(nn.Module):
             self.TH[named] = torch.zeros_like(param.data).to(device)
             self.grads[named] = torch.zeros_like(param.data).to(device)
             self.TW[named] = torch.zeros_like(param.data).to(device)
-
-        self.prediction_params = torch.zeros(total_columns).to(device)
+        self.init_param = nn.init.uniform_(torch.empty(total_columns)).to(device)
+        self.prediction_params = self.init_param.clone()
         # self.grads["prediction_params"] = torch.zeros_like(self.prediction_parameters.data).to(device)
 
     def forward(self, x, hidden_state, grad=True, retain_graph=False, bptt=False):
@@ -136,36 +136,34 @@ class MetaLearnerRegressionCol(nn.Module):
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.meta_lr)
 
         def inner_update(self, var, grad, adaptation_lr):
-        adaptation_weight_counter = 0
-        new_weights = []
-        i=0
-        for p in var:
-            if i == 8:
-                g = grad[adaptation_weight_counter]
-                temp_weight = p - adaptation_lr * g
-                new_weights.append(temp_weight)
-                adaptation_weight_counter += 1
-            else:
-                new_weights.append(p)
-            i+=1
-        return new_weights
+            adaptation_weight_counter = 0
+            new_weights = []
+            i=0
+            for p in var:
+                if i == 8:
+                    g = grad[adaptation_weight_counter]
+                    temp_weight = p - adaptation_lr * g
+                    new_weights.append(temp_weight)
+                    adaptation_weight_counter += 1
+                else:
+                    new_weights.append(p)
+                i+=1
+            return new_weights
 
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
-        prediction, self.rnn_state ,_ = self.net(x_traj[0], self.rnn_state, grad=False, bptt=True)
+        prediction, self.rnn_state ,_ = self.net(x_traj[0], self.rnn_state, params=None, grad=False, bptt=True)
         loss = F.mse_loss(prediction, y_traj[0, 0])
 
         grad = torch.autograd.grad(loss, self.net.prediction_params,
                                                   create_graph=True)
         fast_weights = self.inner_update(self.net.parameters(), grad, self.inner_lr)
-
-
         with torch.no_grad():
             prediction, _, _ = self.net(x_rand[0], self.rnn_state, grad=False, bptt=True)
             first_loss = F.mse_loss(prediction, y_rand[0, 0])
 
         for k in range(1, len(x_traj)):
-            prediction, self.rnn_state, _ = self.net(x_traj[k], self.rnn_state, grad=False, bptt=True)
+            prediction, self.rnn_state, _ = self.net(x_traj[k], self.rnn_state, params=fast_weights, grad=False, bptt=True)
             loss = F.mse_loss(prediction, y_traj[k,  0])
             grad = torch.autograd.grad(loss, self.net.prediction_params,
                                                       create_graph=True)
@@ -174,7 +172,7 @@ class MetaLearnerRegressionCol(nn.Module):
         meta_loss = 0
 
         for i in range(1, len(x_rand)):
-            prediction, self.rnn_state, _ = self.net(x_rand[i], self.rnn_state, grad=False, bptt=True)
+            prediction, self.rnn_state, _ = self.net(x_rand[i], self.rnn_state, params=fast_weights grad=False, bptt=True)
             loss = F.mse_loss(prediction, y_rand[i,  0])
             meta_loss += loss
 
@@ -186,7 +184,8 @@ class MetaLearnerRegressionCol(nn.Module):
         0/0
         return [first_loss.detach(), meta_loss.detach()/len(x_rand)]
 
-    def abcd(self, x_traj, y_traj, x_rand, y_rand):
+
+    def forward_(self, x_traj, y_traj, x_rand, y_rand):
         """
         not doing 1st sample separatly
         """
@@ -208,10 +207,10 @@ class MetaLearnerRegressionCol(nn.Module):
             self.net.online_update(self.inner_lr, self.rnn_state, y_traj[k, 0], value_prediction)
             self.net.update_TW(self.inner_lr, self.rnn_state, y_traj[k, 0], value_prediction)
 
-
-
         for name, p in self.net.named_parameters():
             p.grad = self.net.grads[name].clone()
         self.optimizer.step()
+
+        self.net.prediction_params = self.net.init_param.clone()
 
         return 0, total_loss / len(x_traj)
