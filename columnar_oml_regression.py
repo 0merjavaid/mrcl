@@ -45,7 +45,7 @@ def main():
     else:
         device = torch.device('cpu')
 
-    metalearner = MetaLearnerRegressionCol(51, 150, 50)
+    metalearner = MetaLearnerRegressionCol(51, 150, 50, device=device)
     tmp = filter(lambda x: x.requires_grad, metalearner.parameters())
     num = sum(map(lambda x: np.prod(x.shape), tmp))
     logger.info('Total trainable tensors: %d', num)
