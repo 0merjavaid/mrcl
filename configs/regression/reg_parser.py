@@ -31,5 +31,5 @@ class Parser(configargparse.ArgParser):
         self.add("--context-plasticity", action="store_true")
         self.add('--seed', nargs='+', help='Seed', default=[90], type=int)
         self.add('--rank', type=int, help='meta batch size, namely task num', default=0)
-        self.add("--width", type=int, default=20)
-        self.add("--cols", type=int, default=100)
+        self.add("--width", type=int, default=50)
+        self.add("--cols", type=int, default=300)

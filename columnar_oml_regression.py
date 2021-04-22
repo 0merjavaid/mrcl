@@ -110,8 +110,8 @@ def main():
                         device)
                 logits_select = []
                 for i in range(len(x_rand)):
-                    l = net.forward_col(x_rand[i], vars=None)
-                    logits_select.append(l) 
+                    l, _, _ = net.forward_col(x_rand[i], vars=None, grad=False)
+                    logits_select.append(l)
 
                 logits = torch.stack(logits_select).unsqueeze(1)
 

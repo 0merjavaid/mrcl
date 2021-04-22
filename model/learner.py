@@ -99,8 +99,10 @@ class Learner(nn.Module):
                 else:
                     torch.nn.init.zeros_(var)
 
-    def forward_col(self, x, vars=None, config=None):
+    def forward_col(self, x, vars=None, grad=True, config=None, retain_graph=False):
         x = x.float()
+        h_t = None
+        grads = None
         if vars is None:
             vars = self.vars
 
@@ -117,8 +119,13 @@ class Learner(nn.Module):
                 elif x.ndim == 2 and w.ndim == 3:
                     x = x.unsqueeze(1)
                 elif x.ndim == 2 and b.ndim == 1:
-                    x = x.view(-1)
+                    # prediction layer
+                    h_t = x.view(-1)
+                    sum_ht = torch.sum(h_t)
                     w = w.view(-1)
+                    y = torch.sum(h_t * w, 0) + b
+                    idx += 2
+                    continue
                 x = torch.sum(x * w, 0) + b
                 idx += 2
             elif name == 'hidden':
@@ -130,9 +137,12 @@ class Learner(nn.Module):
                 x = F.relu(x)
             else:
                 raise NotImplementedError
-
+        if grad:
+            with torch.no_grad():
+                grads = torch.autograd.grad(sum_ht, self.get_forward_meta_parameters(),
+                                            allow_unused=True, retain_graph=retain_graph)
         assert idx == len(vars)
-        return x
+        return y, h_t, grads
 
 
     def forward(self, x, vars=None, config=None, sparsity_log=False, rep=False):
@@ -196,7 +206,7 @@ class Learner(nn.Module):
 
     def get_forward_meta_parameters(self):
         """
-        :return: adaptation parameters i.e. parameters changed in the inner loop
+        :return: meta parameters i.e. parameters changed in the meta update
         """
         return list(filter(lambda x: x.meta, list(self.vars)))
 
