@@ -172,7 +172,7 @@ class MetaLearnerRegressionCol(nn.Module):
         meta_loss = 0
 
         for i in range(1, len(x_rand)):
-            prediction, self.rnn_state, _ = self.net(x_rand[i], self.rnn_state, params=fast_weights grad=False, bptt=True)
+            prediction, self.rnn_state, _ = self.net(x_rand[i], self.rnn_state, params=fast_weights, grad=False, bptt=True)
             loss = F.mse_loss(prediction, y_rand[i,  0])
             meta_loss += loss
 

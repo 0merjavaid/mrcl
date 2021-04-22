@@ -4,11 +4,12 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
-
+import model.modelfactory as mf
 import configs.regression.reg_parser as reg_parser
 import datasets.task_sampler as ts
 from experiment.experiment import experiment
-from model.col_meta import MetaLearnerRegressionCol
+# from model.col_meta import MetaLearnerRegressionCol
+from model.meta_learner import MetaLearnerRegression
 from utils import utils
 import os
 from pprint import pprint
@@ -37,7 +38,10 @@ def main():
     tasks = list(range(400))
 
     sampler = ts.SamplerFactory.get_sampler("Sin", tasks, None, capacity=args["capacity"] + 1)
-
+    model_config = mf.ModelFactory.get_model(args["model"], "Sin", input_dimension=args["capacity"] + 1,
+                                             output_dimension=1,
+                                             width=args["width"],
+                                             cols=args["cols"])
     gpu_to_use = rank % args["gpus"]
     if torch.cuda.is_available():
         device = torch.device('cuda:' + str(gpu_to_use))
@@ -45,10 +49,12 @@ def main():
     else:
         device = torch.device('cpu')
 
-    metalearner = MetaLearnerRegressionCol(51, 150, 50, device=device)
+    # metalearner = MetaLearnerRegressionCol(51, 150, 50, device=device)
+    metalearner = MetaLearnerRegression(args, model_config).to(device)
     tmp = filter(lambda x: x.requires_grad, metalearner.parameters())
     num = sum(map(lambda x: np.prod(x.shape), tmp))
     logger.info('Total trainable tensors: %d', num)
+
     #
     running_meta_loss = 0
     adaptation_loss = 0
@@ -103,12 +109,9 @@ def main():
                     x_traj, y_traj, x_rand, y_rand = x_traj.to(device), y_traj.to(device), x_rand.to(device), y_rand.to(
                         device)
                 logits_select = []
-                for i in range(len(x_traj)):
-                    l, _, _ = net(x_rand[0], hidden_state=metalearner.rnn_state, grad=False)
-                    logits_select.append(l)
-                # logits_select = []
-                # for no, val in enumerate(y_rand[:, 1].long()):
-                #     logits_select.append(logits[no])
+                for i in range(len(x_rand)):
+                    l = net.forward_col(x_rand[i], vars=None)
+                    logits_select.append(l) 
 
                 logits = torch.stack(logits_select).unsqueeze(1)
 

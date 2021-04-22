@@ -125,12 +125,10 @@ class MetaLearnerRegression(nn.Module):
         return net
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
-        prediction = self.net(x_traj[0], vars=None)
-        loss = F.mse_loss(prediction, y_traj[0, :, 0].unsqueeze(1))
-
+        prediction = self.net.forward_col(x_traj[0], vars=None)
+        loss = F.mse_loss(prediction, y_traj[0, 0])
         grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(),
                                                   create_graph=True))
-
         list_of_context = None
         if self.context_plasticity:
             list_of_context = self.net.forward_plasticity(x_traj[0])
@@ -138,11 +136,11 @@ class MetaLearnerRegression(nn.Module):
         fast_weights = self.inner_update(self.net, self.net.parameters(), grad, self.update_lr, list_of_context)
 
         with torch.no_grad():
-            prediction = self.net(x_rand[0], vars=None)
-            first_loss = F.mse_loss(prediction, y_rand[0, :, 0].unsqueeze(1))
+            prediction = self.net.forward_col(x_rand[0], vars=None)
+            first_loss = F.mse_loss(prediction, y_rand[0, 0])
         for k in range(1, len(x_traj)):
-            prediction = self.net(x_traj[k], fast_weights)
-            loss = F.mse_loss(prediction, y_traj[k, :, 0].unsqueeze(1))
+            prediction = self.net.forward_col(x_traj[k], fast_weights)
+            loss = F.mse_loss(prediction, y_traj[k, 0])
             grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(fast_weights),
                                                       create_graph=True))
 
@@ -151,18 +149,17 @@ class MetaLearnerRegression(nn.Module):
                 list_of_context = self.net.forward_plasticity(x_traj[k])
 
             fast_weights = self.inner_update(self.net, fast_weights, grad, self.update_lr, list_of_context)
-        
-        prediction_qry_set = self.net(x_rand[0], fast_weights)
-        # print(prediction_qry_set)
-        final_meta_loss = F.mse_loss(prediction_qry_set, y_rand[0, :, 0].unsqueeze(1))
+        final_meta_loss = 0
+        for i in range(1, len(x_rand)):
+            prediction_qry_set = self.net.forward_col(x_rand[i], fast_weights)
+            final_meta_loss += F.mse_loss(prediction_qry_set, y_rand[i, 0])
 
         self.optimizer_zero_grad()
 
         final_meta_loss.backward()
 
         self.optimizer_step()
-
-        return [first_loss.detach(), final_meta_loss.detach()]
+        return [first_loss.detach(), final_meta_loss.detach()/(len(x_rand) - 1)]
 
 
 class MetaLearingClassification(nn.Module):

@@ -16,7 +16,7 @@ class Learner(nn.Module):
     """
     """
 
-    def __init__(self, learner_configuration, backbone_configuration=None):
+    def __init__(self, learner_configuration, backbone_configuration=None, type="columnar"):
         """
 
         :param learner_configuration: network config file, type:list of (string, list)
@@ -29,8 +29,10 @@ class Learner(nn.Module):
         self.backbone_config = backbone_configuration
 
         self.vars = nn.ParameterList()
-
-        self.vars = self.parse_config(self.config, nn.ParameterList())
+        if type == "columnar":
+            self.vars = self.parse_config_columnar(self.config, nn.ParameterList())
+        else:
+            self.vars = self.parse_config(self.config, nn.ParameterList())
         self.context_backbone = None
 
     def parse_config(self, config, vars_list):
@@ -45,6 +47,24 @@ class Learner(nn.Module):
             elif info_dict["name"] == 'linear':
                 param_config = info_dict["config"]
                 w, b = oml.nn.linear(param_config["out"], param_config["in"], info_dict["adaptation"],
+                                     info_dict["meta"])
+                vars_list.append(w)
+                vars_list.append(b)
+
+            elif info_dict["name"] in ['tanh', 'rep', 'relu', 'upsample', 'avg_pool2d', 'max_pool2d',
+                                       'flatten', 'reshape', 'leakyrelu', 'sigmoid', 'rotate']:
+                continue
+            else:
+                print(info_dict["name"])
+                raise NotImplementedError
+        return vars_list
+
+    def parse_config_columnar(self, config, vars_list):
+
+        for i, info_dict in enumerate(config):
+            if info_dict["name"] in ['linear', 'hidden']:
+                param_config = info_dict["config"]
+                w, b = oml.nn.col_linear(param_config["cols"], param_config["out"], param_config["in"], info_dict["adaptation"],
                                      info_dict["meta"])
                 vars_list.append(w)
                 vars_list.append(b)
@@ -78,6 +98,42 @@ class Learner(nn.Module):
                     torch.nn.init.kaiming_normal_(var)
                 else:
                     torch.nn.init.zeros_(var)
+
+    def forward_col(self, x, vars=None, config=None):
+        x = x.float()
+        if vars is None:
+            vars = self.vars
+
+        if config is None:
+            config = self.config
+
+        idx = 0
+        for layer_counter, info_dict in enumerate(config):
+            name = info_dict["name"]
+            if name == 'linear':
+                w, b = vars[idx], vars[idx + 1]
+                if x.ndim == 1:
+                    x = x.view(-1, 1, 1)
+                elif x.ndim == 2 and w.ndim == 3:
+                    x = x.unsqueeze(1)
+                elif x.ndim == 2 and b.ndim == 1:
+                    x = x.view(-1)
+                    w = w.view(-1)
+                x = torch.sum(x * w, 0) + b
+                idx += 2
+            elif name == 'hidden':
+                w, b = vars[idx], vars[idx + 1]
+                w = w.squeeze(1)
+                x = torch.sum(x * w, 0) + b
+                idx += 2
+            elif name == 'relu':
+                x = F.relu(x)
+            else:
+                raise NotImplementedError
+
+        assert idx == len(vars)
+        return x
+
 
     def forward(self, x, vars=None, config=None, sparsity_log=False, rep=False):
         """

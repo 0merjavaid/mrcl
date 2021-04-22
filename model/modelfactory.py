@@ -5,10 +5,9 @@ class ModelFactory():
         pass
 
     @staticmethod
-    def get_model(model_type, dataset, input_dimension=6, output_dimension=6, width=300):
+    def get_model(model_type, dataset, input_dimension=6, output_dimension=6, width=300, cols=20):
 
         if "Sin" == dataset:
-
             if model_type == "representation":
 
                 hidden_size = width
@@ -31,6 +30,21 @@ class ModelFactory():
                     {"name": 'relu'},
                     {"name": 'linear', "adaptation": True, "meta": True,
                      "config": {"out": output_dimension, "in": hidden_size}}
+                ]
+            elif model_type == "columnar":
+                hidden_size = width
+                return [
+                    {"name": 'linear', "adaptation": False, "meta": True,
+                     "config": {"cols": cols, "out": hidden_size, "in": input_dimension}},
+                    {"name": 'relu'},
+                    {"name": 'linear', "adaptation": False, "meta": True,
+                     "config": {"cols": cols, "out": hidden_size, "in": hidden_size}},
+                    {"name": 'relu'},
+                    {"name": 'hidden', "adaptation": False, "meta": True,
+                     "config": {"cols": cols, "out": 1, "in": hidden_size}},
+                    {"name": 'relu'},
+                    {"name": 'linear', "adaptation": True, "meta": True,
+                     "config": {"cols": cols, "out": output_dimension, "in": 1}}
                 ]
 
         elif dataset == "omniglot":
@@ -74,8 +88,6 @@ class ModelFactory():
                  "config": {"out": 1000, "in": 9 * channels}}
 
             ]
-
-
 
         else:
             print("Unsupported model; either implement the model in model/ModelFactory or choose a different model")

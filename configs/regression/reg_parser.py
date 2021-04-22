@@ -7,7 +7,7 @@ class Parser(configargparse.ArgParser):
         self.add('-c', '--my-config', is_config_file=True, default="configs/regression/empty.ini",
                  help='config file path')
 
-        self.add('--epoch', type=int, help='epoch number', default=300000)
+        self.add('--epoch', type=int, help='epoch number', default=30000)
         self.add('--tasks', type=int, help='meta batch size, namely task num', default=10)
         self.add('--capacity', type=int, help='meta batch size, namely task num', default=50)
         self.add('--meta-lr', type=float, nargs='+', help='meta-level outer learning rate', default=[1e-4])
@@ -20,7 +20,7 @@ class Parser(configargparse.ArgParser):
                  default=[0.003])
         self.add('--update-step', type=int, help='task-level inner update steps', default=1)
         self.add('--name', help='Name of experiment', default="oml_regression")
-        self.add('--model', help='Name of model', default="representation")
+        self.add('--model', help='Name of model', default="columnar")
         self.add('--model-path', help='Path to model', default=None)
         self.add("--second-order", action="store_true", default=True)
         self.add("--static-plasticity", action="store_true")
@@ -31,4 +31,5 @@ class Parser(configargparse.ArgParser):
         self.add("--context-plasticity", action="store_true")
         self.add('--seed', nargs='+', help='Seed', default=[90], type=int)
         self.add('--rank', type=int, help='meta batch size, namely task num', default=0)
-        self.add("--width", type=int, default=400)
+        self.add("--width", type=int, default=20)
+        self.add("--cols", type=int, default=100)
