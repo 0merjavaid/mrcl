@@ -125,7 +125,7 @@ class MetaLearnerRegression(nn.Module):
         return net
 
     def forward(self, x_traj, y_traj, x_rand, y_rand):
-        prediction = self.net.forward_col(x_traj[0], vars=None)
+        prediction, _, _ = self.net.forward_col(x_traj[0], vars=None, grad=False)
         loss = F.mse_loss(prediction, y_traj[0, 0])
         grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(),
                                                   create_graph=True))
@@ -136,10 +136,10 @@ class MetaLearnerRegression(nn.Module):
         fast_weights = self.inner_update(self.net, self.net.parameters(), grad, self.update_lr, list_of_context)
 
         with torch.no_grad():
-            prediction = self.net.forward_col(x_rand[0], vars=None)
+            prediction, _, _ = self.net.forward_col(x_rand[0], vars=None, grad=False)
             first_loss = F.mse_loss(prediction, y_rand[0, 0])
         for k in range(1, len(x_traj)):
-            prediction = self.net.forward_col(x_traj[k], fast_weights)
+            prediction, _, _ = self.net.forward_col(x_traj[k], fast_weights, grad=False)
             loss = F.mse_loss(prediction, y_traj[k, 0])
             grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(fast_weights),
                                                       create_graph=True))
@@ -151,7 +151,7 @@ class MetaLearnerRegression(nn.Module):
             fast_weights = self.inner_update(self.net, fast_weights, grad, self.update_lr, list_of_context)
         final_meta_loss = 0
         for i in range(1, len(x_rand)):
-            prediction_qry_set = self.net.forward_col(x_rand[i], fast_weights)
+            prediction_qry_set, _, _ = self.net.forward_col(x_rand[i], fast_weights, grad=False)
             final_meta_loss += F.mse_loss(prediction_qry_set, y_rand[i, 0])
 
         self.optimizer_zero_grad()

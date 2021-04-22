@@ -10,7 +10,7 @@ class Parser(configargparse.ArgParser):
         self.add('--epoch', type=int, help='epoch number', default=30000)
         self.add('--tasks', type=int, help='meta batch size, namely task num', default=10)
         self.add('--capacity', type=int, help='meta batch size, namely task num', default=50)
-        self.add('--meta-lr', type=float, nargs='+', help='meta-level outer learning rate', default=[1e-4])
+        self.add('--meta-lr', type=float, nargs='+', help='meta-level outer learning rate', default=[1e-3])
         self.add('--gpus', type=int, help='meta-level outer learning rate', default=1)
         self.add('--plasticity-lr', nargs='+', type=float, help='meta-level outer learning rate',
                  default=[1e-4])
