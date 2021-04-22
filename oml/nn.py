@@ -24,10 +24,15 @@ def col_linear(cols, out_dim, in_dim, adaptation, meta):
     if in_dim == 1 and out_dim == 1:
         w = nn.Parameter(torch.ones(in_dim, cols))
         b = nn.Parameter(torch.zeros(out_dim))
+        # prediction parameters
+        torch.nn.init.kaiming_normal_(w)
     else:
         w = nn.Parameter(torch.ones(in_dim, out_dim, cols))
+        # feature extractor and hidden layer weights. in,out,cols and in,1,cols (for hidden)
+        for dim in cols:
+            torch.nn.init.kaiming_normal_(w[:, :, dim])
         b = nn.Parameter(torch.zeros(out_dim, cols))
-    torch.nn.init.kaiming_normal_(w)
+
     w.meta, b.meta = meta, meta
     w.adaptation, b.adaptation = adaptation, adaptation
     return w, b
