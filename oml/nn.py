@@ -29,7 +29,7 @@ def col_linear(cols, out_dim, in_dim, adaptation, meta):
     else:
         w = nn.Parameter(torch.ones(in_dim, out_dim, cols))
         # feature extractor and hidden layer weights. in,out,cols and in,1,cols (for hidden)
-        for dim in cols:
+        for dim in range(cols):
             torch.nn.init.kaiming_normal_(w[:, :, dim])
         b = nn.Parameter(torch.zeros(out_dim, cols))
 
