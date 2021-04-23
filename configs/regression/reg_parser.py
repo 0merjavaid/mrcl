@@ -10,7 +10,7 @@ class Parser(configargparse.ArgParser):
         self.add('--epoch', type=int, help='epoch number', default=30000)
         self.add('--tasks', type=int, help='meta batch size, namely task num', default=10)
         self.add('--capacity', type=int, help='meta batch size, namely task num', default=50)
-        self.add('--meta-lr', type=float, nargs='+', help='meta-level outer learning rate', default=[1e-3])
+        self.add('--meta-lr', type=float, nargs='+', help='meta-level outer learning rate', default=[1e-4])
         self.add('--gpus', type=int, help='meta-level outer learning rate', default=1)
         self.add('--plasticity-lr', nargs='+', type=float, help='meta-level outer learning rate',
                  default=[1e-4])
@@ -32,6 +32,6 @@ class Parser(configargparse.ArgParser):
         self.add("--context-plasticity", action="store_true")
         self.add('--seed', nargs='+', help='Seed', default=[90], type=int)
         self.add('--run', type=int, help='meta batch size, namely task num', default=0)
-        self.add("--width", type=int, nargs='+', default=[20])
-        self.add("--cols", type=int, nargs='+', default=[100])
+        self.add("--width", type=int, nargs='+', default=[50])
+        self.add("--cols", type=int, nargs='+', default=[300])
         self.add("--update_rule", nargs='+', help='RTRL or BPTT', default=['RTRL'])

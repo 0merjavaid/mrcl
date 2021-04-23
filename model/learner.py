@@ -33,6 +33,8 @@ class Learner(nn.Module):
             self.vars = self.parse_config_columnar(self.config, nn.ParameterList())
         else:
             self.vars = self.parse_config(self.config, nn.ParameterList())
+
+        self.adapt_layer = self.get_init_adap()
         self.context_backbone = None
 
     def parse_config(self, config, vars_list):
@@ -86,6 +88,10 @@ class Learner(nn.Module):
         # quit()
         logger.info("Inverse computed")
 
+    def get_init_adap(self):
+        for var in self.vars:
+            if var.adaptation:
+                return var.clone()
 
     def reset_vars(self):
         """
@@ -94,10 +100,11 @@ class Learner(nn.Module):
         """
         for var in self.vars:
             if var.adaptation is True:
-                if len(var.shape) > 1:
-                    torch.nn.init.kaiming_normal_(var)
-                else:
-                    torch.nn.init.zeros_(var)
+                var.data = self.adapt_layer.data
+                # if len(var.shape) > 1:
+                #     torch.nn.init.kaiming_normal_(var)
+                # else:
+                #     torch.nn.init.zeros_(var)
 
     def forward_col(self, x, vars=None, grad=True, config=None, retain_graph=False):
         x = x.float()

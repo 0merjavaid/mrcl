@@ -186,4 +186,4 @@ class MetaLearnerRegressionCol(nn.Module):
 
         # self.net.prediction_params = self.net.init_param.clone()
 
-        return 0, total_loss / len(x_traj)
+        return 0, total_loss / len(x_rand)

@@ -20,7 +20,7 @@ class MetaLearnerRegression(nn.Module):
         """
         super(MetaLearnerRegression, self).__init__()
 
-        self.update_lr = args["update_lr"]
+        self.inner_lr = args["update_lr"]
         self.meta_lr = args["meta_lr"]
         self.static_plasticity = args["static_plasticity"]
         self.context_plasticity = args["context_plasticity"]
@@ -85,6 +85,11 @@ class MetaLearnerRegression(nn.Module):
                 print(n1, n2)
                 assert (False)
 
+    def online_update(self, update_lr, rnn_state, target, y):
+        error = (target - y)
+        vars = self.net.get_adaptation_parameters()[0].clone() + update_lr * error * rnn_state.view(-1)
+        self.net.update_weights([vars], meta=False)
+
     def inner_update(self, net, vars, grad, adaptation_lr, list_of_context=None, log=False):
         adaptation_weight_counter = 0
 
@@ -124,7 +129,65 @@ class MetaLearnerRegression(nn.Module):
             p.grad = (g * (g > -norm).float()) - ((g < -norm).float()) * norm
         return net
 
+    def reset_adaptation(self):
+        self.net.reset_vars()
+
     def forward(self, x_traj, y_traj, x_rand, y_rand):
+        """
+        not doing 1st sample separatly
+        """
+        # meta loss
+        total_loss = 0
+        self.reset_adaptation()
+        self.optimizer_forward_meta.zero_grad()
+        for k in range(0, len(x_traj)):
+            value_prediction, rnn_state, _ = self.net.forward_col(x_traj[k], grad=False)
+            self.online_update(self.inner_lr, rnn_state, y_traj[k, 0], value_prediction)
+
+        for i in range(0, len(x_rand)):
+            # vp, rs, gs = self.net.forward_col(x_rand[i], grad=True)
+            vp, rs, _ = self.net.forward_col(x_rand[i], grad=False)
+            # self.update_TH(gs)
+            total_loss += F.mse_loss(vp, y_rand[i, 0])
+            # self.accumulate_gradients(y_rand[i, 0], vp, hidden_state=rs)
+        self.optimizer_forward_meta.zero_grad()
+        grads = torch.autograd.grad(total_loss, self.net.get_forward_meta_parameters())
+        # counter = 0
+        # total_sum = 0
+        # positive_sum = 0
+        # dif = 0
+
+        # for named, param in self.named_parameters():
+        #     if not param.meta:
+        #         continue
+        #     dif += torch.abs(self.grads[named] - grads[counter]).sum()
+        #     positive = ((self.grads[named] * grads[counter]) > 1e-10).float().sum()
+        #     total = positive + ((self.grads[named] * grads[counter]) < - 1e-10).float().sum()
+        #     total_sum += total
+        #     positive_sum += positive
+        #
+        #     counter += 1
+        #
+        # logger.error("Difference = %s", (float(dif) / total_sum).item())
+        # # gradient_error_list.append( (float(dif) / total_sum).item())
+        # # gradient_alignment_list.append(str(float(positive_sum) / float(total_sum)))
+        # logger.error("Grad alignment %s", str(float(positive_sum) / float(total_sum)))
+
+        ind = 0
+        for name, p in self.named_parameters():
+            if not p.meta:
+                continue
+            p.grad = grads[ind].clone()
+            ind+=1
+
+        assert len(grads) == ind
+
+        self.optimizer_forward_meta.step()
+
+        return 0, total_loss / len(x_rand)
+
+
+    def forward_(self, x_traj, y_traj, x_rand, y_rand):
         prediction, _, _ = self.net.forward_col(x_traj[0], vars=None, grad=False)
         loss = F.mse_loss(prediction, y_traj[0, 0])
         grad = self.clip_grad(torch.autograd.grad(loss, self.net.get_adaptation_parameters(),
@@ -147,7 +210,6 @@ class MetaLearnerRegression(nn.Module):
             list_of_context = None
             if self.context_plasticity:
                 list_of_context = self.net.forward_plasticity(x_traj[k])
-
             fast_weights = self.inner_update(self.net, fast_weights, grad, self.update_lr, list_of_context)
         final_meta_loss = 0
         for i in range(1, len(x_rand)):
