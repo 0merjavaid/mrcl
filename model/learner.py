@@ -67,7 +67,6 @@ class Learner(nn.Module):
                 params = oml.nn.col_linear(param_config["cols"], param_config["out"], param_config["in"], info_dict["adaptation"],
                                      info_dict["meta"], info_dict['bias'])
                 for p in params:
-                    print(p.shape)
                     vars_list.append(p)
 
             elif info_dict["name"] in ['tanh', 'rep', 'relu', 'upsample', 'avg_pool2d', 'max_pool2d',

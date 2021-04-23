@@ -8,7 +8,7 @@ import model.modelfactory as mf
 import configs.regression.reg_parser as reg_parser
 import datasets.task_sampler as ts
 from experiment.experiment import experiment
-# from model.col_meta import MetaLearnerRegressionCol
+from model.col_meta import MetaLearnerRegressionCol
 from model.meta_learner import MetaLearnerRegression
 from utils import utils
 import os
@@ -48,14 +48,16 @@ def main():
         logger.info("Using gpu : %s", 'cuda:' + str(gpu_to_use))
     else:
         device = torch.device('cpu')
-
-    # metalearner = MetaLearnerRegressionCol(51, 150, 50, device=device)
-    metalearner = MetaLearnerRegression(args, model_config).to(device)
+    if args.get('update_rule') == "RTRL":
+        logger.info("Columnar Net based gradient approximation...")
+        metalearner = MetaLearnerRegressionCol(args, model_config, device=device).to(device)
+    else:
+        logger.info("BPTT update rule...")
+        metalearner = MetaLearnerRegression(args, model_config).to(device)
     tmp = filter(lambda x: x.requires_grad, metalearner.parameters())
     num = sum(map(lambda x: np.prod(x.shape), tmp))
     logger.info('Total trainable tensors: %d', num)
 
-    #
     running_meta_loss = 0
     adaptation_loss = 0
     loss_history = []
