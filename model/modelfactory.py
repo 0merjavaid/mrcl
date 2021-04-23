@@ -34,16 +34,16 @@ class ModelFactory():
             elif model_type == "columnar":
                 hidden_size = width
                 return [
-                    {"name": 'linear', "adaptation": False, "meta": True,
+                    {"name": 'linear', "adaptation": False, "meta": True, "bias": True,
                      "config": {"cols": cols, "out": hidden_size, "in": input_dimension}},
                     {"name": 'relu'},
-                    {"name": 'linear', "adaptation": False, "meta": True,
+                    {"name": 'linear', "adaptation": False, "meta": True, "bias": True,
                      "config": {"cols": cols, "out": hidden_size, "in": hidden_size}},
                     {"name": 'relu'},
-                    {"name": 'hidden', "adaptation": False, "meta": True,
+                    {"name": 'hidden', "adaptation": False, "meta": True, "bias": True,
                      "config": {"cols": cols, "out": 1, "in": hidden_size}},
                     {"name": 'relu'},
-                    {"name": 'linear', "adaptation": True, "meta": True,
+                    {"name": 'linear', "adaptation": True, "meta": False, "bias": False,
                      "config": {"cols": cols, "out": output_dimension, "in": 1}}
                 ]
 
