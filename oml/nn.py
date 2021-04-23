@@ -20,17 +20,23 @@ def linear(out_dim, in_dim, adaptation, meta):
     return w, b
 
 
-def col_linear(cols, out_dim, in_dim, adaptation, meta):
+def col_linear(cols, out_dim, in_dim, adaptation, meta, bias=True):
     if in_dim == 1 and out_dim == 1:
         w = nn.Parameter(torch.ones(in_dim, cols))
-        b = nn.Parameter(torch.zeros(out_dim))
+        if bias:
+            # prediction layer has no bias yet
+            b = nn.Parameter(torch.zeros(out_dim))
     else:
         w = nn.Parameter(torch.ones(in_dim, out_dim, cols))
-        b = nn.Parameter(torch.zeros(out_dim, cols))
+        if bias:
+            b = nn.Parameter(torch.zeros(out_dim, cols))
     torch.nn.init.kaiming_normal_(w)
-    w.meta, b.meta = meta, meta
-    w.adaptation, b.adaptation = adaptation, adaptation
-    return w, b
+    w.meta, w.adaptation = meta, adaptation
+    if bias:
+        b.meta, b.adaptation = meta, adaptation
+        return w, b
+
+    return [w]
 
 
 def linear_sparse(out_dim, in_dim, spread, adaptation, meta):

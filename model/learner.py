@@ -64,10 +64,11 @@ class Learner(nn.Module):
         for i, info_dict in enumerate(config):
             if info_dict["name"] in ['linear', 'hidden']:
                 param_config = info_dict["config"]
-                w, b = oml.nn.col_linear(param_config["cols"], param_config["out"], param_config["in"], info_dict["adaptation"],
-                                     info_dict["meta"])
-                vars_list.append(w)
-                vars_list.append(b)
+                params = oml.nn.col_linear(param_config["cols"], param_config["out"], param_config["in"], info_dict["adaptation"],
+                                     info_dict["meta"], info_dict['bias'])
+                for p in params:
+                    print(p.shape)
+                    vars_list.append(p)
 
             elif info_dict["name"] in ['tanh', 'rep', 'relu', 'upsample', 'avg_pool2d', 'max_pool2d',
                                        'flatten', 'reshape', 'leakyrelu', 'sigmoid', 'rotate']:
@@ -113,18 +114,19 @@ class Learner(nn.Module):
         for layer_counter, info_dict in enumerate(config):
             name = info_dict["name"]
             if name == 'linear':
-                w, b = vars[idx], vars[idx + 1]
+                w = vars[idx]
+                b = 0 if idx+1 == len(config) else vars[idx+1]
                 if x.ndim == 1:
                     x = x.view(-1, 1, 1)
                 elif x.ndim == 2 and w.ndim == 3:
                     x = x.unsqueeze(1)
-                elif x.ndim == 2 and b.ndim == 1:
+                elif info_dict.get('adaptation'):
                     # prediction layer
                     h_t = x.view(-1)
                     sum_ht = torch.sum(h_t)
                     w = w.view(-1)
                     y = torch.sum(h_t * w, 0) + b
-                    idx += 2
+                    idx = idx+1 if isinstance(b, int) else idx+2
                     continue
                 x = torch.sum(x * w, 0) + b
                 idx += 2
@@ -192,9 +194,13 @@ class Learner(nn.Module):
         assert idx == len(vars)
         return x
 
-    def update_weights(self, vars):
-        for old, new in zip(self.vars, vars):
-            old.data = new.data
+    def update_weights(self, vars, meta=False):
+        i = 0
+        for old in self.vars:
+            if old.meta == meta:
+                old.data = vars[i].data
+                i += 1
+        assert i == len(vars)
 
     def get_adaptation_parameters(self, vars=None):
         """
