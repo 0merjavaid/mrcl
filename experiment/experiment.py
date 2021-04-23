@@ -48,10 +48,12 @@ class experiment:
                     conn = mysql.connector.connect(
                         host=self.db_data['database'][0]["ip"],
                         user=self.db_data['database'][0]["username"],
-                        password=self.db_data['database'][0]["password"]
+                        password=self.db_data['database'][0]["password"],
+                        auth_plugin='mysql_native_password'
                     )
                     break
-                except:
+                except Exception as e:
+                    print (e)
                     time.sleep((random.random() + 0.2) * 5)
 
             sql_run = conn.cursor()
@@ -141,7 +143,8 @@ class experiment:
                     conn = mysql.connector.connect(
                         host=self.db_data['database'][0]["ip"],
                         user=self.db_data['database'][0]["username"],
-                        password=self.db_data['database'][0]["password"]
+                        password=self.db_data['database'][0]["password"],
+                        auth_plugin='mysql_native_password'
                     )
                     break
                 except:
