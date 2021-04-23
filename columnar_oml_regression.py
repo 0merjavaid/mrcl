@@ -14,27 +14,29 @@ from utils import utils
 import os
 from pprint import pprint
 
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+# os.environ['KMP_DUPLICATE_LIB_OK']='True'
 logger = logging.getLogger('experiment')
 
 
 def main():
     p = reg_parser.Parser()
     total_seeds = len(p.parse_known_args()[0].seed)
-    rank = p.parse_known_args()[0].rank
+    run = p.parse_known_args()[0].run
     all_args = vars(p.parse_known_args()[0])
-    args = utils.get_run(vars(p.parse_known_args()[0]), rank)
-    utils.set_seed(args["seed"])
 
-    my_experiment = experiment(args["name"], args, "../results/", commit_changes=False,
-                               rank=int(rank / total_seeds),
+    args = utils.get_run(all_args, run)
+
+    my_experiment = experiment(args["name"], args, args["output_dir"], sql=True,
+                               run=int(run / total_seeds),
                                seed=total_seeds)
 
     my_experiment.results["all_args"] = all_args
-    writer = SummaryWriter(my_experiment.path + "tensorboard")
-    logger = logging.getLogger('experiment')
-    pprint(args)
 
+    my_experiment.make_table("metrics", {"run": 0, "meta_loss": 0.0, "step": 0}, ("run", "step"))
+
+    metrics_keys = ["run", "meta_loss", "step"]
+
+    logger = logging.getLogger('experiment')
     tasks = list(range(400))
 
     sampler = ts.SamplerFactory.get_sampler("Sin", tasks, None, capacity=args["capacity"] + 1)
@@ -42,7 +44,7 @@ def main():
                                              output_dimension=1,
                                              width=args["width"],
                                              cols=args["cols"])
-    gpu_to_use = rank % args["gpus"]
+    gpu_to_use = run % args["gpus"]
     if torch.cuda.is_available():
         device = torch.device('cuda:' + str(gpu_to_use))
         logger.info("Using gpu : %s", 'cuda:' + str(gpu_to_use))
@@ -59,10 +61,12 @@ def main():
     running_meta_loss = 0
     adaptation_loss = 0
     loss_history = []
+    metrics_list = []
+    metrics_keys = ["run", "meta_loss", "step"]
     adaptation_loss_history = []
     adaptation_running_loss_history = []
     meta_steps_counter = 0
-    LOG_INTERVAL = 50
+    LOG_INTERVAL = 2
     for step in range(args["epoch"]):
         if step % LOG_INTERVAL == 0:
             logger.debug("####\t STEP %d \t####", step)
@@ -88,9 +92,7 @@ def main():
 
         running_meta_loss = running_meta_loss * 0.97 + 0.03 * meta_loss[-1].detach().cpu()
         running_meta_loss_fixed = running_meta_loss / (1 - (0.97 ** (meta_steps_counter)))
-        writer.add_scalar('/metatrain/train/accuracy', meta_loss[-1].detach().cpu(), meta_steps_counter)
-        writer.add_scalar('/metatrain/train/runningaccuracy', running_meta_loss_fixed,
-                          meta_steps_counter)
+        metrics_list.append((run, running_meta_loss_fixed.item(), step))
 
         if step % LOG_INTERVAL == 0:
             if running_meta_loss > 0:
@@ -125,7 +127,7 @@ def main():
 
                 if step % LOG_INTERVAL == 0:
                     logger.info("Running adaptation loss = %f", adaptation_loss_fixed)
-                writer.add_scalar('/learn/test/adaptation_loss', current_adaptation_loss, step)
+
 
         if (step + 1) % (LOG_INTERVAL * 500) == 0:
             if not args["no_save"]:
@@ -133,6 +135,9 @@ def main():
             dict_names = {}
             for (name, param) in metalearner.net.named_parameters():
                 dict_names[name] = param.adaptation
+
+            my_experiment.insert_values("metrics", metrics_keys, metrics_list)
+            metrics_list = []
 
             my_experiment.add_result("Layers meta values", dict_names)
             my_experiment.add_result("Meta loss", loss_history)

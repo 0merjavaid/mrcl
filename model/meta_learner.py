@@ -46,7 +46,7 @@ class MetaLearnerRegression(nn.Module):
             self.optimizer_neuro = optim.Adam(self.net.neuromodulation_parameters, lr=args["neuro_lr"])
             self.optimizers.append(self.optimizer_neuro)
 
-        if args['model_path'] is not None:
+        if args['model_path'] is not "None":
             self.load_weights(args)
 
         self.log_model()
