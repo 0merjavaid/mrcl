@@ -13,7 +13,7 @@ logger = logging.getLogger("experiment")
 
 class MetaLearnerRegression(nn.Module):
 
-    def __init__(self, args, config, backbone_config=None):
+    def __init__(self, args, config, backbone_config=None, device="cpu"):
         """
         #
         :param args:
@@ -26,7 +26,7 @@ class MetaLearnerRegression(nn.Module):
         self.context_plasticity = args["context_plasticity"]
 
         self.sigmoid = not args["no_sigmoid"]
-        self.load_model(args, config, backbone_config)
+        self.load_model(args, config, backbone_config, device)
         self.optimizers = []
 
         forward_meta_weights = self.net.get_forward_meta_parameters()
@@ -67,12 +67,12 @@ class MetaLearnerRegression(nn.Module):
         for opti in self.optimizers:
             opti.step()
 
-    def load_model(self, args, config, context_config):
+    def load_model(self, args, config, context_config, device="cpu"):
         if args['model_path'] is not None and False:
             pass
             assert (False)
         else:
-            self.net = Learner.Learner(config, context_config)
+            self.net = Learner.Learner(config, context_config, device=device)
 
     def load_weights(self, args):
         loaded_net = torch.load(args['model_path'] + "/net.model",

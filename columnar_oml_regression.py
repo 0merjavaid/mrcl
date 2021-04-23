@@ -55,7 +55,7 @@ def main():
         metalearner = MetaLearnerRegressionCol(args, model_config, device=device).to(device)
     else:
         logger.info("BPTT update rule...")
-        metalearner = MetaLearnerRegression(args, model_config).to(device)
+        metalearner = MetaLearnerRegression(args, model_config, device=device).to(device)
     tmp = filter(lambda x: x.requires_grad, metalearner.parameters())
     num = sum(map(lambda x: np.prod(x.shape), tmp))
     logger.info('Total trainable tensors: %d', num)

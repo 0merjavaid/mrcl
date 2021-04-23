@@ -16,7 +16,7 @@ class Learner(nn.Module):
     """
     """
 
-    def __init__(self, learner_configuration, backbone_configuration=None, type="columnar"):
+    def __init__(self, learner_configuration, backbone_configuration=None, type="columnar", device="cpu"):
         """
 
         :param learner_configuration: network config file, type:list of (string, list)
@@ -33,7 +33,7 @@ class Learner(nn.Module):
             self.vars = self.parse_config_columnar(self.config, nn.ParameterList())
         else:
             self.vars = self.parse_config(self.config, nn.ParameterList())
-
+        self.vars = self.vars.to(device)
         self.adapt_layer = self.get_init_adap()
         self.context_backbone = None
 

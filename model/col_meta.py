@@ -22,7 +22,7 @@ class MetaLearnerRegressionCol(nn.Module):
         self.TH = {}
         self.grads = {}
         self.TW = {}
-        self.load_model(args, config, backbone_config)
+        self.load_model(args, config, backbone_config, device)
         for named, param in self.named_parameters():
             if not param.meta:
                 continue
@@ -51,8 +51,8 @@ class MetaLearnerRegressionCol(nn.Module):
             if param.adaptation:
                 logger.debug("Weight for adaptation = %s %s", name, str(param.shape))
 
-    def load_model(self, args, config, context_config):
-        self.net = Learner.Learner(config, context_config)
+    def load_model(self, args, config, context_config, device="cpu"):
+        self.net = Learner.Learner(config, context_config, device=device)
 
     def update_TH(self, grads):
         with torch.no_grad():
