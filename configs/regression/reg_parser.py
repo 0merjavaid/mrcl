@@ -34,4 +34,4 @@ class Parser(configargparse.ArgParser):
         self.add('--run', type=int, help='meta batch size, namely task num', default=0)
         self.add("--width", type=int, nargs='+', default=[20])
         self.add("--cols", type=int, nargs='+', default=[100])
-        self.add("--update_rule", help='RTRL or BPTT', default='RTRL')
+        self.add("--update_rule", nargs='+', help='RTRL or BPTT', default=['RTRL'])
