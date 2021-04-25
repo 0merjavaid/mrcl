@@ -75,10 +75,12 @@ class RTRLMetaRegression(nn.Module):
     def load_weights(self, args):
         pass
 
-    def online_update(self, update_lr, rnn_state, target, y):
+    def online_update(self, update_lr, representation, target, weight):
+        y = torch.sum(weight.view(-1)*representation.view(-1))
         error = (target - y)
-        vars = self.net.get_adaptation_parameters()[0].clone() + update_lr * error * rnn_state.view(-1)
-        self.net.update_weights([vars], meta=False)
+        new_weights = weight.view(-1) + update_lr * error * representation.view(-1)
+        return new_weights
+
 
     def reset_adaptation(self):
         self.net.reset_vars()
