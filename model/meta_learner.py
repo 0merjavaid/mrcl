@@ -88,18 +88,23 @@ class RTRLMetaRegression(nn.Module):
         self.reset_adaptation()
         self.optimizers_zero_grad()
         # inner updates RTRL
-        w_prev = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
+        jacobians_t = []
         for k in range(0, len(x_traj)):
+            w_prev = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
             value_prediction, rnn_state, _ = self.net.forward_rtrl(x_traj[k])
             self.online_update(self.inner_lr, rnn_state, y_traj[k, 0], value_prediction)
+            w_t = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
+            # d(w_t-1) / d(w_t)
+            jacobian_w = torch.autograd.grad(w_prev, [w_t], grad_outputs=w_prev.data.new(w_prev.shape).fill_(1), allow_unused=True)
+            """
+            Wrong equations...
+            """
+            # d(w_t-1) / d(theta)
+            jacobian_theta = torch.autograd.grad(w_prev, self.net.get_forward_meta_parameters().clone())
+            
+            jacobian = jacobian_theta + torch.matmul(jacobian_w, jacobian_theta)
+            jacobians_t.append(jacobian)
 
-        w_t = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
-        assert not torch.equal(w_prev, w_t)
-        outputs = torch.zeros(w_prev.shape)
-        jacobian_w = torch.autograd.grad(w_prev, w_t, grad_outputs=outputs.data.new(w_prev.shape).fill_(1), allow_unused=True)
-        print (jacobian_w.shape)
-        jacobian_theta = torch.autograd.grad(w_prev, self.net.get_forward_meta_parameters().clone())
-        jacobian = jacobian_theta + torch.matmul(jacobian_w, jacobian_theta)
 
         for i in range(0, len(x_rand)):
             vp, rs, _ = self.net.forward_rtrl(x_rand[i])
