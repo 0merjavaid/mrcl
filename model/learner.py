@@ -33,14 +33,13 @@ class Learner(nn.Module):
             self.vars = self.parse_config_columnar(self.config, nn.ParameterList())
         else:
             self.vars = self.parse_config(self.config, nn.ParameterList())
+
         self.vars = self.vars.to(device)
         self.adapt_layer = self.get_init_adap()
         self.context_backbone = None
 
     def parse_config(self, config, vars_list):
-
         for i, info_dict in enumerate(config):
-
             if info_dict["name"] == 'conv2d':
                 w, b = oml.nn.conv2d(info_dict["config"], info_dict["adaptation"], info_dict["meta"])
                 vars_list.append(w)
@@ -62,7 +61,6 @@ class Learner(nn.Module):
         return vars_list
 
     def parse_config_columnar(self, config, vars_list):
-
         for i, info_dict in enumerate(config):
             if info_dict["name"] in ['linear', 'hidden']:
                 param_config = info_dict["config"]
@@ -89,18 +87,22 @@ class Learner(nn.Module):
         logger.info("Inverse computed")
 
     def get_init_adap(self):
+        vars = []
         for var in self.vars:
             if var.adaptation:
-                return var.clone()
+                vars.append(var.clone())
+        return vars
 
     def reset_vars(self):
         """
         Reset all adaptation parameters to random values. Bias terms are set to zero and other terms to default values of kaiming_normal_
         :return:
         """
+        i = 0
         for var in self.vars:
             if var.adaptation is True:
-                var.data = self.adapt_layer.data
+                var.data = self.adapt_layer[i].data
+                i += 1
                 # if len(var.shape) > 1:
                 #     torch.nn.init.kaiming_normal_(var)
                 # else:
@@ -152,6 +154,43 @@ class Learner(nn.Module):
         assert idx == len(vars)
         return y, h_t, grads
 
+    def forward_rtrl(self, x, vars=None, config=None, retain_graph=False):
+        x = x.float()
+        h_t = None
+
+        if vars is None:
+            vars = self.vars
+        if config is None:
+            config = self.config
+
+        idx = 0
+        for layer_counter, info_dict in enumerate(config):
+            name = info_dict["name"]
+            if name == 'linear':
+                w = vars[idx]
+                b = 0 if idx+1 == len(vars) else vars[idx+1]
+
+                if info_dict.get('adaptation'):
+                    # prediction layer No bias
+                    h_t = x.view(-1)
+                    y = F.linear(x, w)
+                    idx = idx+1 if isinstance(b, int) else idx+2
+                    continue
+                x = F.linear(x, w, b)
+                idx += 2
+
+            elif name == 'hidden':
+                w, b = vars[idx], vars[idx + 1]
+                w = w.squeeze(1)
+                x = torch.sum(x * w, 0) + b
+                idx += 2
+            elif name == 'relu':
+                x = F.relu(x)
+            else:
+                raise NotImplementedError
+
+        assert idx == len(vars)
+        return y, h_t, None
 
     def forward(self, x, vars=None, config=None, sparsity_log=False, rep=False):
         """
@@ -206,6 +245,8 @@ class Learner(nn.Module):
             if old.meta == meta:
                 old.data = vars[i].data
                 i += 1
+                # don't update bias
+                break
         assert i == len(vars)
 
     def get_adaptation_parameters(self, vars=None):

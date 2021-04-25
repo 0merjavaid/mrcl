@@ -21,7 +21,7 @@ class Parser(configargparse.ArgParser):
         self.add('--update-step', type=int, help='task-level inner update steps', default=1)
         self.add('--name', help='Name of experiment', default="oml_regression")
         self.add('--output_dir', help='Name of experiment', default="../")
-        self.add('--model', help='Name of model', default="columnar")
+        self.add('--model', help='Name of model', default="representation")
         self.add('--model-path', help='Path to model', default="None")
         self.add("--second-order", action="store_true", default=True)
         self.add("--static-plasticity", action="store_true")

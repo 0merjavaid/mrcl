@@ -10,6 +10,7 @@ import model.learner as Learner
 
 logger = logging.getLogger("experiment")
 
+
 class RTRLMetaRegression(nn.Module):
     def __init__(self, args, config, backbone_config=None, device="cpu"):
         """
@@ -56,7 +57,7 @@ class RTRLMetaRegression(nn.Module):
             if param.adaptation:
                 logger.debug("Weight for adaptation = %s %s", name, str(param.shape))
 
-    def optimizer_zero_grad(self):
+    def optimizers_zero_grad(self):
         for opti in self.optimizers:
             opti.zero_grad()
 
@@ -69,52 +70,54 @@ class RTRLMetaRegression(nn.Module):
             pass
             assert (False)
         else:
-            self.net = Learner.Learner(config, context_config, device=device)
+            self.net = Learner.Learner(config, context_config, type="representation", device=device)
 
     def load_weights(self, args):
         pass
 
     def online_update(self, update_lr, rnn_state, target, y):
-        pass
+        error = (target - y)
+        vars = self.net.get_adaptation_parameters()[0].clone() + update_lr * error * rnn_state.view(-1)
+        self.net.update_weights([vars], meta=False)
 
     def reset_adaptation(self):
         self.net.reset_vars()
 
-        def forward(self, x_traj, y_traj, x_rand, y_rand):
-            """
-            not doing 1st sample separatly
-            """
-            # meta loss
-            total_loss = 0
-            self.reset_adaptation()
-            self.optimizers_zero_grad()
+    def forward(self, x_traj, y_traj, x_rand, y_rand):
+        total_loss = 0
+        self.reset_adaptation()
+        self.optimizers_zero_grad()
+        # inner updates RTRL
+        w_prev = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
+        for k in range(0, len(x_traj)):
+            value_prediction, rnn_state, _ = self.net.forward_rtrl(x_traj[k])
+            self.online_update(self.inner_lr, rnn_state, y_traj[k, 0], value_prediction)
 
-            # inner updates RTRL
-            for k in range(0, len(x_traj)):
-                value_prediction, rnn_state, _ = self.net.forward_col(x_traj[k], grad=False)
-                # call inner update
+        w_t = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
+        assert not torch.equal(w_prev, w_t)
+        outputs = torch.zeros(w_prev.shape)
+        jacobian_w = torch.autograd.grad(w_prev, w_t, grad_outputs=outputs.data.new(w_prev.shape).fill_(1), allow_unused=True)
+        print (grad_outputs.shape)
+        jacobian_theta = torch.autograd.grad(w_prev, self.net.get_forward_meta_parameters().clone())
+        jacobian = jacobian_theta + torch.matmul(jacobian_w, jacobian_theta)
 
-            for i in range(0, len(x_rand)):
-                vp, rs, _ = self.net.forward_col(x_rand[i], grad=False)
-                total_loss += F.mse_loss(vp, y_rand[i, 0])
+        for i in range(0, len(x_rand)):
+            vp, rs, _ = self.net.forward_rtrl(x_rand[i])
+            total_loss += F.mse_loss(vp, y_rand[i, 0])
 
-            self.optimizer_forward_meta.zero_grad()
-            # add RTRL grads
-            grads = None
+        dW = torch.autograd.grad(total_loss, w_t)
+        d_theta = torch.matmul(dW, jacobian).squeeze(0)
+        ind = 0
+        # copy params to network params
+        for name, p in self.named_parameters():
+            if not p.meta:
+                continue
+            p.grad = d_theta[ind].clone()
+            ind += 1
 
-            ind = 0
-            # copy params to network params
-            for name, p in self.named_parameters():
-                if not p.meta:
-                    continue
-                p.grad = grads[ind].clone()
-                ind += 1
-
-            assert len(grads) == ind
-
-            self.optimizer_step()
-
-            return 0, total_loss / len(x_rand)
+        assert len(d_theta) == ind
+        self.optimizer_step()
+        return 0, total_loss / len(x_rand)
 
 
 class MetaLearnerRegression(nn.Module):
