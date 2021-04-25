@@ -28,6 +28,7 @@ class ModelFactory():
                     {"name": 'linear', "adaptation": False, "meta": True,
                      "config": {"out": hidden_size, "in": hidden_size}},
                     {"name": 'relu'},
+                    {"name": 'rep'},
                     {"name": 'linear', "adaptation": True, "meta": False,
                      "config": {"out": output_dimension, "in": hidden_size}}
                 ]
