@@ -90,14 +90,22 @@ class RTRLMetaRegression(nn.Module):
         self.reset_adaptation()
         self.optimizers_zero_grad()
         # inner updates RTRL
+        old_weights = torch.nn.Parameter(self.net.get_adaptation_parameters()[0])
         jacobians_t = []
-        for k in range(0, len(x_traj)):
-            w_prev = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
-            value_prediction, rnn_state, _ = self.net.forward_rtrl(x_traj[k])
-            self.online_update(self.inner_lr, rnn_state, y_traj[k, 0], value_prediction)
-            w_t = self.net.get_adaptation_parameters()[0].clone().squeeze(0)
-            # d(w_t-1) / d(w_t)
-            jacobian_w = torch.autograd.grad(w_prev, [w_t], grad_outputs=w_prev.data.new(w_prev.shape).fill_(1), allow_unused=True)
+        representation = self.net.forward(x_traj[0], rep=True)
+        fast_weights = self.online_update(self.inner_lr, representation, y_traj[0, 0], old_weights)
+        jacobian_w = torch.autograd.grad(fast_weights, [old_weights], grad_outputs=torch.ones_like(fast_weights),
+                                         allow_unused=False)
+        # Update the d w /  d (\theta) matrix here
+        assert(False)
+        for k in range(1, len(x_traj)):
+
+            representation = self.net.forward(x_traj[k], rep=True)
+            old_weights = fast_weights
+            fast_weights =  self.online_update(self.inner_lr, representation, y_traj[k, 0], old_weights)
+            jacobian_w = torch.autograd.grad(fast_weights, [old_weights], grad_outputs=torch.ones_like(fast_weights), allow_unused=False)
+            # Update the d w /  d (\theta) matrix here
+            assert(False)
             """
             Wrong equations...
             """
