@@ -10,6 +10,112 @@ import model.learner as Learner
 
 logger = logging.getLogger("experiment")
 
+class RTRLMetaRegression(nn.Module):
+    def __init__(self, args, config, backbone_config=None, device="cpu"):
+        """
+        #
+        :param args:
+        """
+        super(RTRLMetaRegression, self).__init__()
+        self.inner_lr = args["update_lr"]
+        self.meta_lr = args["meta_lr"]
+        self.static_plasticity = args["static_plasticity"]
+        self.context_plasticity = args["context_plasticity"]
+
+        self.sigmoid = not args["no_sigmoid"]
+        self.load_model(args, config, backbone_config, device)
+        self.optimizers = []
+
+        forward_meta_weights = self.net.get_forward_meta_parameters()
+        if len(forward_meta_weights) > 0:
+            self.optimizer_forward_meta = optim.Adam(forward_meta_weights, lr=self.meta_lr)
+            self.optimizers.append(self.optimizer_forward_meta)
+        else:
+            logger.warning("Zero meta parameters in the forward pass")
+
+        if args["static_plasticity"]:
+            self.net.add_static_plasticity()
+            self.optimizer_static_plasticity = optim.Adam(self.net.static_plasticity, lr=args["plasticity_lr"])
+            self.optimizers.append(self.optimizer_static_plasticity)
+
+        if args["neuro"]:
+            self.net.add_neuromodulation(args['context_dimension'])
+            self.optimizer_neuro = optim.Adam(self.net.neuromodulation_parameters, lr=args["neuro_lr"])
+            self.optimizers.append(self.optimizer_neuro)
+
+        if args['model_path']:
+            self.load_weights(args)
+
+        self.log_model()
+
+    def log_model(self):
+        for name, param in self.net.named_parameters():
+            print(name)
+            if param.meta:
+                logger.info("Weight in meta-optimizer = %s %s", name, str(param.shape))
+            if param.adaptation:
+                logger.debug("Weight for adaptation = %s %s", name, str(param.shape))
+
+    def optimizer_zero_grad(self):
+        for opti in self.optimizers:
+            opti.zero_grad()
+
+    def optimizer_step(self):
+        for opti in self.optimizers:
+            opti.step()
+
+    def load_model(self, args, config, context_config, device="cpu"):
+        if args['model_path'] is not None and False:
+            pass
+            assert (False)
+        else:
+            self.net = Learner.Learner(config, context_config, device=device)
+
+    def load_weights(self, args):
+        pass
+
+    def online_update(self, update_lr, rnn_state, target, y):
+        pass
+
+    def reset_adaptation(self):
+        self.net.reset_vars()
+
+        def forward(self, x_traj, y_traj, x_rand, y_rand):
+            """
+            not doing 1st sample separatly
+            """
+            # meta loss
+            total_loss = 0
+            self.reset_adaptation()
+            self.optimizers_zero_grad()
+
+            # inner updates RTRL
+            for k in range(0, len(x_traj)):
+                value_prediction, rnn_state, _ = self.net.forward_col(x_traj[k], grad=False)
+                # call inner update
+
+            for i in range(0, len(x_rand)):
+                vp, rs, _ = self.net.forward_col(x_rand[i], grad=False)
+                total_loss += F.mse_loss(vp, y_rand[i, 0])
+
+            self.optimizer_forward_meta.zero_grad()
+            # add RTRL grads
+            grads = None
+
+            ind = 0
+            # copy params to network params
+            for name, p in self.named_parameters():
+                if not p.meta:
+                    continue
+                p.grad = grads[ind].clone()
+                ind += 1
+
+            assert len(grads) == ind
+
+            self.optimizer_step()
+
+            return 0, total_loss / len(x_rand)
+
 
 class MetaLearnerRegression(nn.Module):
 
