@@ -97,7 +97,7 @@ class RTRLMetaRegression(nn.Module):
         assert not torch.equal(w_prev, w_t)
         outputs = torch.zeros(w_prev.shape)
         jacobian_w = torch.autograd.grad(w_prev, w_t, grad_outputs=outputs.data.new(w_prev.shape).fill_(1), allow_unused=True)
-        print (grad_outputs.shape)
+        print (jacobian_w.shape)
         jacobian_theta = torch.autograd.grad(w_prev, self.net.get_forward_meta_parameters().clone())
         jacobian = jacobian_theta + torch.matmul(jacobian_w, jacobian_theta)
 
